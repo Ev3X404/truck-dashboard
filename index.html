@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logistics Operations Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+body{font-family:Segoe UI,sans-serif;background:#f3f4f6;margin:0;padding:16px}
+.header{display:flex;justify-content:space-between;flex-wrap:wrap}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0}
+.card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.card h2{margin:0}
+input,select{padding:10px;border-radius:8px;border:1px solid #ccc}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.container{overflow:auto;background:#fff;border-radius:12px}
+.timeline{min-width:1200px}
+.row{display:flex;border-bottom:1px solid #eee;min-height:44px}
+.hub{width:160px;position:sticky;left:0;background:#fff;padding:10px;font-weight:600}
+.chart{flex:1;position:relative}
+.bar{position:absolute;height:70%;top:15%;border-radius:6px;cursor:pointer}
+.arrived{background:#3b82f6}
+.noshow{background:#9ca3af}
+.timeheader{display:flex}
+.slot{flex:1;text-align:center;padding:10px;font-size:12px;border-left:1px solid #eee}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5)}
+.modal-content{background:#fff;max-width:500px;margin:10vh auto;padding:20px;border-radius:12px}
+@media(max-width:768px){.timeline{min-width:900px}.hub{width:120px}}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>Logistics Operations Dashboard</h1>
+<div id="updated">Loading...</div>
+</div>
+
+<div class="kpis">
+<div class="card"><h2 id="total">0</h2>รถทั้งหมด</div>
+<div class="card"><h2 id="arrived">0</h2>Arrived</div>
+<div class="card"><h2 id="noshow">0</h2>No Show</div>
+</div>
+
+<div class="toolbar">
+<input id="search" placeholder="ค้นหา Hub">
+<select id="filter">
+<option value="all">ทั้งหมด</option>
+<option value="arrived">Arrived</option>
+<option value="noshow">No Show</option>
+</select>
+<button onclick="loadData()">Refresh</button>
+</div>
+
+<div class="container">
+<div class="timeline">
+<div class="row">
+<div class="hub">Hub</div>
+<div class="chart timeheader" id="header"></div>
+</div>
+<div id="rows"></div>
+</div>
+</div>
+
+<div class="modal" id="modal">
+<div class="modal-content">
+<button onclick="modal.style.display='none'">ปิด</button>
+<div id="detail"></div>
+</div>
+</div>
+
+<script>
+const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9kyQu5_1Ac6ea5bkVvWVy-_HbN43tC919Xf9sHP91Bt6LI7ggnCmUFoa_NbnVxGR5TKrVUJQwd6y1/pub?gid=0&single=true&output=csv;
+const startHour=17,totalColumns=23,totalMinutes=1380;
+
+for(let i=0;i<23;i++){
+let h=(17+i)%24;
+header.innerHTML+=`<div class="slot">${String(h).padStart(2,'0')}:00</div>`;
+}
+
+function percent(t){
+if(!t||!t.includes(':')) return 0;
+let [h,m]=t.split(':').map(Number);
+let mins=h>=17?((h-17)*60+m):(((24-17)+h)*60+m);
+return mins/totalMinutes*100;
+}
+
+function loadData(){
+if(CSV_URL.startsWith("PASTE")) return;
+Papa.parse(CSV_URL,{
+download:true,header:true,
+complete:r=>render(r.data)
+});
+}
+
+function render(data){
+rows.innerHTML='';
+
+const searchTxt=search.value.toLowerCase();
+const filterVal=filter.value;
+
+let arrivedCount=0;
+
+data.forEach(x=>{
+const hubName=x["Destination"]||"";
+if(!hubName.toLowerCase().includes(searchTxt)) return;
+
+const status=(x["Arrived Truck"]||"").toLowerCase();
+const isArrived=status.includes("arrived");
+
+if(filterVal==="arrived"&&!isArrived) return;
+if(filterVal==="noshow"&&isArrived) return;
+
+if(isArrived) arrivedCount++;
+
+const row=document.createElement('div');
+row.className='row';
+row.innerHTML=`<div class="hub">${hubName}</div><div class="chart"></div>`;
+rows.appendChild(row);
+
+const chart=row.querySelector('.chart');
+
+let bar=document.createElement('div');
+bar.className='bar '+(isArrived?'arrived':'noshow');
+bar.style.left=percent(x["Loading Time"])+'%';
+bar.style.width=Math.max(percent(x["Depart Time"])-percent(x["Loading Time"]),1)+'%';
+bar.onclick=()=>{
+detail.innerHTML=`<h3>${hubName}</h3>
+<p>สถานะ: ${x["Arrived Truck"]||"-"}</p>
+<p>Load: ${x["Loading Time"]||"-"}</p>
+<p>Depart: ${x["Depart Time"]||"-"}</p>`;
+modal.style.display='block';
+};
+chart.appendChild(bar);
+});
+
+total.textContent=data.length;
+arrived.textContent=arrivedCount;
+noshow.textContent=data.length-arrivedCount;
+updated.textContent="อัปเดต "+new Date().toLocaleString('th-TH');
+}
+
+search.oninput=loadData;
+filter.onchange=loadData;
+</script>
+</body>
+</html>
