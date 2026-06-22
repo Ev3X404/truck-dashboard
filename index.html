@@ -3,143 +3,399 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Logistics Operations Dashboard</title>
+<title>Hub Schedule Timeline ✦</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
-body{font-family:Segoe UI,sans-serif;background:#f3f4f6;margin:0;padding:16px}
-.header{display:flex;justify-content:space-between;flex-wrap:wrap}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0}
-.card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
-.card h2{margin:0}
-input,select{padding:10px;border-radius:8px;border:1px solid #ccc}
-.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-.container{overflow:auto;background:#fff;border-radius:12px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Nunito',sans-serif;
+  background:#c8e8f8;
+  min-height:100vh;
+  padding:20px;
+}
+
+/* Phone frame */
+.phone-frame{
+  background:#fff;
+  border:4px solid #f9a8d4;
+  border-radius:28px;
+  max-width:1400px;
+  margin:0 auto;
+  padding:20px 20px 16px;
+  box-shadow:0 0 0 8px rgba(249,168,212,0.2), 0 8px 32px rgba(0,0,0,0.1);
+}
+
+/* Status bar */
+.statusbar{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:11px;color:#94a3b8;margin-bottom:12px;padding:0 6px;
+}
+
+/* Title pill */
+.title-pill{
+  background:#e0f2fe;
+  border:2px solid #7dd3fc;
+  border-radius:50px;
+  padding:9px 28px;
+  text-align:center;
+  margin-bottom:14px;
+}
+.title-pill h1{
+  font-size:15px;font-weight:800;
+  color:#0369a1;letter-spacing:1.5px;
+}
+
+/* KPI cards */
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.kpi-card{
+  background:#f0f9ff;border:2px solid #bae6fd;
+  border-radius:16px;padding:12px 16px;text-align:center;
+}
+.kpi-card .num{font-size:28px;font-weight:800;line-height:1}
+.kpi-card .lbl{font-size:11px;color:#64748b;margin-top:3px;font-weight:600}
+.kpi-card.total .num{color:#0284c7}
+.kpi-card.arrived .num{color:#0891b2}
+.kpi-card.noshow .num{color:#64748b}
+
+/* Toolbar */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.toolbar input,.toolbar select{
+  padding:8px 16px;border-radius:50px;
+  border:2px solid #f9a8d4;
+  font-family:'Nunito',sans-serif;font-size:13px;font-weight:600;
+  outline:none;background:#fff0f6;color:#4b5563;
+}
+.toolbar input:focus,.toolbar select:focus{border-color:#ec4899}
+.refresh-btn{
+  background:#f9a8d4;color:#831843;
+  border:2px solid #f472b6;border-radius:50px;
+  padding:8px 18px;
+  font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;
+  cursor:pointer;transition:transform .15s;
+}
+.refresh-btn:hover{transform:scale(1.04);background:#f472b6;color:#fff}
+.legend{display:flex;gap:14px;align-items:center;font-size:12px;color:#64748b;font-weight:600}
+.ld{width:14px;height:10px;border-radius:3px;display:inline-block;margin-right:4px;vertical-align:middle}
+#updated{margin-left:auto;font-size:11px;color:#94a3b8}
+
+/* Timeline container */
+.container{overflow-x:auto;border-radius:14px;border:2px solid #bae6fd}
 .timeline{min-width:1200px}
-.row{display:flex;border-bottom:1px solid #eee;min-height:44px}
-.hub{width:160px;position:sticky;left:0;background:#fff;padding:10px;font-weight:600}
-.chart{flex:1;position:relative}
-.bar{position:absolute;height:70%;top:15%;border-radius:6px;cursor:pointer}
-.arrived{background:#3b82f6}
-.noshow{background:#9ca3af}
-.timeheader{display:flex}
-.slot{flex:1;text-align:center;padding:10px;font-size:12px;border-left:1px solid #eee}
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5)}
-.modal-content{background:#fff;max-width:500px;margin:10vh auto;padding:20px;border-radius:12px}
-@media(max-width:768px){.timeline{min-width:900px}.hub{width:120px}}
+
+/* Header row */
+.header-row{
+  display:flex;
+  background:#e0f2fe;
+  border-bottom:2px solid #bae6fd;
+  position:sticky;top:0;z-index:10;
+}
+.hub-label{
+  width:175px;min-width:175px;
+  padding:10px 14px;
+  font-size:12px;font-weight:800;color:#0369a1;
+  border-right:2px solid #bae6fd;
+  position:sticky;left:0;background:#dbeafe;z-index:11;
+  display:flex;align-items:center;
+}
+.timeheader{flex:1;display:flex}
+.slot{
+  flex:1;text-align:center;padding:10px 0;
+  font-size:10px;font-weight:800;color:#0284c7;
+  border-left:1px solid rgba(186,230,253,0.7);
+}
+
+/* Data rows */
+.row{display:flex;border-bottom:1px solid #e0f2fe;min-height:42px}
+.row:nth-child(even){background:rgba(240,249,255,0.5)}
+.hub-cell{
+  width:175px;min-width:175px;
+  padding:0 14px;
+  font-size:11.5px;font-weight:700;color:#0369a1;
+  border-right:2px solid #bae6fd;
+  position:sticky;left:0;background:#fff;z-index:2;
+  display:flex;align-items:center;
+}
+.row:nth-child(even) .hub-cell{background:#f0f9ff}
+
+/* Chart */
+.chart{
+  flex:1;position:relative;
+  /* subtle column stripes */
+  background:repeating-linear-gradient(
+    to right,
+    rgba(186,230,253,0.18) 0,
+    rgba(186,230,253,0.18) calc(100%/22),
+    rgba(224,242,254,0.08) calc(100%/22),
+    rgba(224,242,254,0.08) calc(200%/22)
+  );
+}
+.chart::after{
+  content:'';
+  position:absolute;inset:0;
+  background:repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(100%/22 - 1px),
+    rgba(186,230,253,0.6) calc(100%/22 - 1px),
+    rgba(186,230,253,0.6) calc(100%/22)
+  );
+  pointer-events:none;z-index:0;
+}
+
+/* Bars */
+.bar{
+  position:absolute;height:52%;top:24%;
+  border-radius:6px;cursor:pointer;z-index:1;
+  min-width:8px;
+  transition:filter .15s,transform .1s;
+}
+.bar:hover{filter:brightness(1.12);transform:scaleY(1.08)}
+.arrived{background:#22d3ee;box-shadow:0 2px 6px rgba(34,211,238,0.35)}
+.noshow{background:#94a3b8;box-shadow:0 2px 4px rgba(0,0,0,0.12)}
+
+/* Midnight marker */
+.midnight-marker{
+  position:absolute;top:0;bottom:0;width:2px;
+  background:rgba(249,168,212,0.7);
+  z-index:2;pointer-events:none;
+}
+.midnight-marker::before{
+  content:'00:00';position:absolute;top:-16px;
+  transform:translateX(-50%);font-size:9px;
+  color:#ec4899;font-family:'Nunito',sans-serif;font-weight:800;
+}
+
+/* Modal (faux viewport approach - no position:fixed) */
+.modal-wrap{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(14,30,60,0.4);
+  z-index:200;align-items:center;justify-content:center;
+}
+.modal-wrap.open{display:flex}
+.modal-box{
+  background:#fff;border:3px solid #f9a8d4;border-radius:20px;
+  padding:24px;max-width:360px;width:90%;
+}
+.modal-box h3{font-size:14px;font-weight:800;color:#0369a1;margin-bottom:10px}
+.modal-box p{font-size:13px;color:#475569;margin:4px 0;font-weight:600}
+.close-btn{
+  display:block;margin-top:16px;
+  background:#f9a8d4;color:#831843;
+  border:none;border-radius:50px;
+  padding:8px 24px;
+  font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer;
+}
+.close-btn:hover{background:#f472b6;color:#fff}
+
+.footer{
+  text-align:center;margin-top:12px;
+  font-size:10px;color:#94a3b8;font-weight:600;letter-spacing:1px;
+}
+
+/* Decorative stars corners */
+.deco{
+  position:absolute;font-size:12px;opacity:.5;pointer-events:none;
+  color:#f472b6;
+}
 </style>
 </head>
 <body>
-<div class="header">
-<h1>Logistics Operations Dashboard</h1>
-<div id="updated">Loading...</div>
+
+<div class="phone-frame" style="position:relative">
+
+  <!-- Corner deco stars -->
+  <span class="deco" style="top:8px;left:14px">✦</span>
+  <span class="deco" style="top:8px;right:14px">✦</span>
+  <span class="deco" style="bottom:8px;left:14px">✧</span>
+  <span class="deco" style="bottom:8px;right:14px">✧</span>
+
+  <!-- Status bar -->
+  <div class="statusbar">
+    <span>กะงานข้ามคืน ·  17:00 – 14:00</span>
+    <span id="updated">กำลังโหลด...</span>
+  </div>
+
+  <!-- Title -->
+  <div class="title-pill">
+    <h1>✦ HUB SCHEDULE TIMELINE ✦</h1>
+  </div>
+
+  <!-- KPI -->
+  <div class="kpis">
+    <div class="kpi-card total">
+      <div class="num" id="kTotal">0</div>
+      <div class="lbl">รถทั้งหมด</div>
+    </div>
+    <div class="kpi-card arrived">
+      <div class="num" id="kArrived">0</div>
+      <div class="lbl">Arrived ✓</div>
+    </div>
+    <div class="kpi-card noshow">
+      <div class="num" id="kNoshow">0</div>
+      <div class="lbl">No Show ✗</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <input id="search" placeholder="🔍  ค้นหาฮับ..." oninput="renderFiltered()">
+    <select id="filter" onchange="renderFiltered()">
+      <option value="all">ทั้งหมด</option>
+      <option value="arrived">Arrived</option>
+      <option value="noshow">No Show</option>
+    </select>
+    <button class="refresh-btn" onclick="loadData()">↺ Refresh</button>
+    <div class="legend">
+      <span><span class="ld" style="background:#22d3ee"></span>Arrived</span>
+      <span><span class="ld" style="background:#94a3b8"></span>No Show</span>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="container">
+    <div class="timeline">
+      <div class="header-row">
+        <div class="hub-label">รายชื่อฮับ</div>
+        <div class="timeheader" id="header"></div>
+      </div>
+      <div id="rows"></div>
+    </div>
+  </div>
+
+  <div class="footer">✦ &nbsp; SPX Express Thailand · Agent Support Line Haul &nbsp; ✦</div>
 </div>
 
-<div class="kpis">
-<div class="card"><h2 id="total">0</h2>รถทั้งหมด</div>
-<div class="card"><h2 id="arrived">0</h2>Arrived</div>
-<div class="card"><h2 id="noshow">0</h2>No Show</div>
-</div>
-
-<div class="toolbar">
-<input id="search" placeholder="ค้นหา Hub">
-<select id="filter">
-<option value="all">ทั้งหมด</option>
-<option value="arrived">Arrived</option>
-<option value="noshow">No Show</option>
-</select>
-<button onclick="loadData()">Refresh</button>
-</div>
-
-<div class="container">
-<div class="timeline">
-<div class="row">
-<div class="hub">Hub</div>
-<div class="chart timeheader" id="header"></div>
-</div>
-<div id="rows"></div>
-</div>
-</div>
-
-<div class="modal" id="modal">
-<div class="modal-content">
-<button onclick="modal.style.display='none'">ปิด</button>
-<div id="detail"></div>
-</div>
+<!-- Modal -->
+<div class="modal-wrap" id="modal">
+  <div class="modal-box">
+    <div id="detail"></div>
+    <button class="close-btn" onclick="document.getElementById('modal').classList.remove('open')">ปิด ✕</button>
+  </div>
 </div>
 
 <script>
 const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9kyQu5_1Ac6ea5bkVvWVy-_HbN43tC919Xf9sHP91Bt6LI7ggnCmUFoa_NbnVxGR5TKrVUJQwd6y1/pub?gid=0&single=true&output=csv";
-const startHour=17,totalColumns=23,totalMinutes=1380;
 
-for(let i=0;i<23;i++){
-let h=(17+i)%24;
-header.innerHTML+=`<div class="slot">${String(h).padStart(2,'0')}:00</div>`;
+const START_HOUR=17;
+const TIME_LABELS=[17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14];
+const TOTAL_MINUTES=21*60; // 17:00→14:00 = 21h
+
+// Build header
+const headerEl=document.getElementById('header');
+TIME_LABELS.forEach(h=>{
+  headerEl.innerHTML+=`<div class="slot">${String(h).padStart(2,'0')}:00</div>`;
+});
+
+function timeToPercent(t){
+  if(!t||!t.includes(':'))return null;
+  const[h,m]=t.split(':').map(Number);
+  const mins=h>=START_HOUR?(h-START_HOUR)*60+m:(24-START_HOUR+h)*60+m;
+  if(mins<0||mins>TOTAL_MINUTES)return null;
+  return(mins/TOTAL_MINUTES)*100;
 }
 
-function percent(t){
-if(!t||!t.includes(':')) return 0;
-let [h,m]=t.split(':').map(Number);
-let mins=h>=17?((h-17)*60+m):(((24-17)+h)*60+m);
-return mins/totalMinutes*100;
-}
+// Midnight marker position: 00:00 = (24-17)*60 / 1260 = 7/21 = 33.33%
+const midnightPct=(7/21*100).toFixed(4);
+
+let allData=[];
 
 function loadData(){
-if(CSV_URL.startsWith("PASTE")) return;
-Papa.parse(CSV_URL,{
-download:true,header:true,
-complete:r=>render(r.data)
-});
+  document.getElementById('updated').textContent='กำลังโหลด...';
+  Papa.parse(CSV_URL,{
+    download:true,header:true,skipEmptyLines:true,
+    complete:r=>{
+      allData=r.data;
+      renderFiltered();
+      document.getElementById('updated').textContent='อัปเดต '+new Date().toLocaleTimeString('th-TH');
+    },
+    error:()=>{document.getElementById('updated').textContent='⚠ โหลดไม่สำเร็จ';}
+  });
 }
 
-function render(data){
-rows.innerHTML='';
+function renderFiltered(){
+  const searchTxt=document.getElementById('search').value.toLowerCase();
+  const filterVal=document.getElementById('filter').value;
+  const rowsEl=document.getElementById('rows');
+  rowsEl.innerHTML='';
 
-const searchTxt=search.value.toLowerCase();
-const filterVal=filter.value;
+  const hubMap=new Map();
+  allData.forEach(x=>{
+    const hub=(x["Destination"]||"").trim();
+    if(!hub)return;
+    if(!hubMap.has(hub))hubMap.set(hub,[]);
+    hubMap.get(hub).push(x);
+  });
 
-let arrivedCount=0;
+  let totalTrips=0,arrivedCount=0,noshowCount=0;
 
-data.forEach(x=>{
-const hubName=x["Destination"]||"";
-if(!hubName.toLowerCase().includes(searchTxt)) return;
+  hubMap.forEach((trips,hubName)=>{
+    if(!hubName.toLowerCase().includes(searchTxt))return;
+    const hasArrived=trips.some(x=>(x["Arrived Truck"]||"").toLowerCase().includes("arrived"));
+    const hasNoshow=trips.some(x=>!(x["Arrived Truck"]||"").toLowerCase().includes("arrived"));
+    if(filterVal==="arrived"&&!hasArrived)return;
+    if(filterVal==="noshow"&&!hasNoshow)return;
 
-const status=(x["Arrived Truck"]||"").toLowerCase();
-const isArrived=status.includes("arrived");
+    trips.forEach(x=>{
+      totalTrips++;
+      (x["Arrived Truck"]||"").toLowerCase().includes("arrived")?arrivedCount++:noshowCount++;
+    });
 
-if(filterVal==="arrived"&&!isArrived) return;
-if(filterVal==="noshow"&&isArrived) return;
+    const row=document.createElement('div');
+    row.className='row';
 
-if(isArrived) arrivedCount++;
+    const hubCell=document.createElement('div');
+    hubCell.className='hub-cell';
+    hubCell.textContent=hubName;
 
-const row=document.createElement('div');
-row.className='row';
-row.innerHTML=`<div class="hub">${hubName}</div><div class="chart"></div>`;
-rows.appendChild(row);
+    const chart=document.createElement('div');
+    chart.className='chart';
 
-const chart=row.querySelector('.chart');
+    // Midnight marker
+    const mm=document.createElement('div');
+    mm.className='midnight-marker';
+    mm.style.left=midnightPct+'%';
+    chart.appendChild(mm);
 
-let bar=document.createElement('div');
-bar.className='bar '+(isArrived?'arrived':'noshow');
-bar.style.left=percent(x["Loading Time"])+'%';
-bar.style.width=Math.max(percent(x["Depart Time"])-percent(x["Loading Time"]),1)+'%';
-bar.onclick=()=>{
-detail.innerHTML=`<h3>${hubName}</h3>
-<p>สถานะ: ${x["Arrived Truck"]||"-"}</p>
-<p>Load: ${x["Loading Time"]||"-"}</p>
-<p>Depart: ${x["Depart Time"]||"-"}</p>`;
-modal.style.display='block';
-};
-chart.appendChild(bar);
-});
+    trips.forEach(x=>{
+      const isArrived=(x["Arrived Truck"]||"").toLowerCase().includes("arrived");
+      if(filterVal==="arrived"&&!isArrived)return;
+      if(filterVal==="noshow"&&isArrived)return;
 
-total.textContent=data.length;
-arrived.textContent=arrivedCount;
-noshow.textContent=data.length-arrivedCount;
-updated.textContent="อัปเดต "+new Date().toLocaleString('th-TH');
+      const leftPct=timeToPercent(x["Loading Time"]);
+      const rightPct=timeToPercent(x["Depart Time"]);
+      if(leftPct===null)return;
+
+      const bar=document.createElement('div');
+      bar.className='bar '+(isArrived?'arrived':'noshow');
+      bar.style.left=leftPct+'%';
+      bar.style.width=(rightPct!==null&&rightPct>leftPct)
+        ?(rightPct-leftPct)+'%'
+        :'2%';
+      bar.title=`${hubName} | ${x["Loading Time"]||"-"} → ${x["Depart Time"]||"-"}`;
+      bar.onclick=()=>{
+        document.getElementById('detail').innerHTML=`
+          <h3>✦ ${hubName}</h3>
+          <p>สถานะ: ${isArrived?'✅ Arrived':'❌ No Show'}</p>
+          <p>⏱ Loading Time: ${x["Loading Time"]||"-"}</p>
+          <p>🚛 Depart Time: ${x["Depart Time"]||"-"}</p>`;
+        document.getElementById('modal').classList.add('open');
+      };
+      chart.appendChild(bar);
+    });
+
+    row.appendChild(hubCell);
+    row.appendChild(chart);
+    rowsEl.appendChild(row);
+  });
+
+  document.getElementById('kTotal').textContent=totalTrips;
+  document.getElementById('kArrived').textContent=arrivedCount;
+  document.getElementById('kNoshow').textContent=noshowCount;
 }
 
-search.oninput=loadData;
-filter.onchange=loadData;
+loadData();
 </script>
 </body>
 </html>
